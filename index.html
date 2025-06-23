@@ -1,0 +1,843 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { CheckCircle, Circle, BookOpen, Star, Package, CheckSquare, List, TrendingUp, TrendingDown, Clock, Edit3, Save, X, Calendar, Target, Zap, Award, Rocket, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+
+// Helper to get weekdays between two dates
+const getWorkingDays = (startDate, endDate) => {
+  let count = 0;
+  const curDate = new Date(startDate);
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  while (curDate <= end) {
+    const dayOfWeek = curDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++;
+    }
+    curDate.setDate(curDate.getDate() + 1);
+  }
+  return count;
+};
+
+// Initial data for the GroundState.AI launch sprint
+const initialSprintData = {
+  overallGoal: "Successfully launch GroundState.AI by soft-launching and establishing key presence.",
+  startDate: '2025-06-24',
+  endDate: '2025-07-04',
+  weeks: [
+    {
+      id: 'week1',
+      name: 'Week 1: Foundation + Content Finalization',
+      goal: 'Polish key assets, finalize pricing, refine product.',
+      days: [
+        { id: 'w1d1', date: 'Mon (6/24)', dueDate: '2025-06-24', focus: 'Finalize initial web + assessment content (copy, UX structure)', completed: false },
+        { id: 'w1d2', date: 'Tue (6/25)', dueDate: '2025-06-25', focus: 'Industry research (benchmarks, comps) + Pricing Model refinement', completed: false },
+        { id: 'w1d3', date: 'Wed (6/26)', dueDate: '2025-06-26', focus: 'Revise GroundState Index assessment + visual flow', completed: false },
+        { id: 'w1d4', date: 'Thu (6/27)', dueDate: '2025-06-27', focus: 'Lock core web structure in Cursor + assessment logic in Polymet.ai', completed: false },
+        { id: 'w1d5', date: 'Fri (6/28)', dueDate: '2025-06-28', focus: 'Finish all content (landing, services, story, LinkedIn bio + visuals)', completed: false },
+      ],
+    },
+    {
+      id: 'week2',
+      name: 'Week 2: Build, Polish, Ship',
+      goal: 'Push live site, launch LinkedIn presence, and soft-launch.',
+      days: [
+        { id: 'w2d1', date: 'Mon (7/1)', dueDate: '2025-07-01', focus: 'Website build in Cursor AI + style polish (font, mobile, animations)', completed: false },
+        { id: 'w2d2', date: 'Tue (7/2)', dueDate: '2025-07-02', focus: 'Testing: assessment UX, logic, lead capture, email workflows', completed: false },
+        { id: 'w2d3', date: 'Wed (7/3)', dueDate: '2025-07-03', focus: 'Publish website, set up Google indexing + basic analytics', completed: false },
+        { id: 'w2d4', date: 'Thu (7/4)', dueDate: '2025-07-04', focus: 'Soft Launch: Publish LinkedIn post, send 1:1 messages, email list', completed: false },
+        { id: 'w2d5', date: 'Fri (7/5)', dueDate: '2025-07-05', focus: 'Buffer day / reflection / prep 5-day sprint deck for first leads', completed: false },
+      ],
+    },
+  ],
+  deliverables: [
+    { id: 'del1', name: 'Website (via Cursor + Polymet): landing, services, story, GroundState Index', completed: false },
+    { id: 'del2', name: 'LinkedIn presence: updated profile + launch post', completed: false },
+    { id: 'del3', name: 'Pricing Model: value-anchored, simple tiers', completed: false },
+    { id: 'del4', name: 'Assessment Tool: live, embeddable, with lead capture', completed: false },
+    { id: 'del5', name: '1:1 Launch Scripts: outreach to top 10-20 warm leads via DM/email', completed: false },
+  ],
+};
+
+// Enhanced Confetti Component with particles
+const ConfettiEffect = ({ isActive }) => {
+  if (!isActive) return null;
+
+  return (
+    <div className="confetti-container pointer-events-none fixed inset-0 z-50 overflow-hidden">
+      {Array.from({ length: 80 }).map((_, i) => {
+        const style = {
+          left: `${Math.random() * 100}vw`,
+          top: `-10vh`,
+          animationDelay: `${Math.random() * 3}s`,
+          backgroundColor: `hsl(${Math.random() * 360}, 80%, 70%)`,
+          transform: `rotate(${Math.random() * 360}deg)`,
+          animationDuration: `${3 + Math.random() * 2}s`,
+        };
+        return <div key={i} className="confetti-piece" style={style}></div>;
+      })}
+      <style>{`
+        .confetti-container {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 9999;
+          overflow: hidden;
+        }
+        .confetti-piece {
+          position: absolute;
+          width: 12px;
+          height: 12px;
+          opacity: 0;
+          animation: confetti-fall ease-out forwards;
+        }
+        @keyframes confetti-fall {
+          0% {
+            opacity: 1;
+            transform: translateY(0) rotate(0deg) scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: translateY(50vh) rotate(360deg) scale(0.8);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(100vh) rotate(720deg) scale(0.3);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Success celebration component
+const SuccessCelebration = ({ isVisible, onClose }) => {
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
+      <div className="bg-gradient-to-br from-emerald-400 to-teal-500 p-8 rounded-2xl shadow-2xl text-white text-center max-w-md mx-4 animate-bounceIn">
+        <div className="text-6xl mb-4">🎉</div>
+        <h3 className="text-2xl font-bold mb-2">Awesome!</h3>
+        <p className="text-emerald-100 mb-4">Task completed! You're making great progress.</p>
+        <button
+          onClick={onClose}
+          className="bg-white text-teal-600 px-6 py-2 rounded-full font-semibold hover:bg-gray-50 transition-colors"
+        >
+          Keep Going!
+        </button>
+      </div>
+    </div>
+  );
+};
+
+function App() {
+  const [sprintData, setSprintData] = useState(initialSprintData);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editingItemType, setEditingItemType] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  const [expandedWeeks, setExpandedWeeks] = useState({ week1: true, week2: true });
+  const [filter, setFilter] = useState('all'); // 'all', 'pending', 'completed'
+  const [viewMode, setViewMode] = useState('cards'); // 'cards', 'list'
+
+  // Update current date every day
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 24 * 60 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const toggleCompletion = useCallback((itemId, itemType, isCompleted) => {
+    setSprintData(prevData => {
+      const newData = JSON.parse(JSON.stringify(prevData));
+      if (itemType === 'day') {
+        newData.weeks.forEach(week => {
+          const day = week.days.find(d => d.id === itemId);
+          if (day) day.completed = !isCompleted;
+        });
+      } else if (itemType === 'deliverable') {
+        const deliverable = newData.deliverables.find(d => d.id === itemId);
+        if (deliverable) deliverable.completed = !isCompleted;
+      }
+      return newData;
+    });
+
+    if (!isCompleted) {
+      setShowConfetti(true);
+      setShowCelebration(true);
+      setTimeout(() => setShowConfetti(false), 3000);
+    }
+  }, []);
+
+  const startEditing = useCallback((itemId, itemType, currentText) => {
+    setEditingItemId(itemId);
+    setEditingItemType(itemType);
+    setEditingText(currentText);
+  }, []);
+
+  const saveEditedContent = useCallback(() => {
+    if (!editingItemId || !editingItemType) return;
+
+    const updatedValue = editingText.trim();
+    if (!updatedValue) return;
+
+    setSprintData(prevData => {
+      const newData = JSON.parse(JSON.stringify(prevData));
+      if (editingItemType === 'day') {
+        newData.weeks.forEach(week => {
+          const day = week.days.find(d => d.id === editingItemId);
+          if (day) day.focus = updatedValue;
+        });
+      } else if (editingItemType === 'deliverable') {
+        const deliverable = newData.deliverables.find(d => d.id === editingItemId);
+        if (deliverable) deliverable.name = updatedValue;
+      }
+      return newData;
+    });
+
+    setEditingItemId(null);
+    setEditingText('');
+  }, [editingItemId, editingItemType, editingText]);
+
+  const cancelEditing = useCallback(() => {
+    setEditingItemId(null);
+    setEditingText('');
+  }, []);
+
+  const toggleWeekExpansion = useCallback((weekId) => {
+    setExpandedWeeks(prev => ({
+      ...prev,
+      [weekId]: !prev[weekId]
+    }));
+  }, []);
+
+  // Calculate overall progress and sprint status
+  const { totalTasks, completedTasks, progressPercentage, sprintStatus, sprintStatusColor, sprintStatusIcon } = useMemo(() => {
+    let total = 0;
+    let completed = 0;
+
+    sprintData.weeks.forEach(week => {
+      week.days.filter(day => day.id !== 'w2d5').forEach(day => {
+        total++;
+        if (day.completed) completed++;
+      });
+    });
+
+    sprintData.deliverables.forEach(deliverable => {
+      total++;
+      if (deliverable.completed) completed++;
+    });
+
+    const actualProgress = total > 0 ? (completed / total) * 100 : 0;
+
+    const sprintStartDate = new Date(sprintData.startDate);
+    const sprintEndDate = new Date(sprintData.endDate);
+    const totalWorkingDays = getWorkingDays(sprintStartDate, sprintEndDate);
+
+    let elapsedWorkingDays = 0;
+    if (currentDate >= sprintStartDate) {
+      elapsedWorkingDays = getWorkingDays(sprintStartDate, currentDate > sprintEndDate ? sprintEndDate : currentDate);
+    }
+
+    const expectedProgress = totalWorkingDays > 0 ? (elapsedWorkingDays / totalWorkingDays) * 100 : 0;
+
+    let status = 'Not Started';
+    let statusColor = 'text-gray-500';
+    let statusIcon = <Clock size={20} />;
+
+    if (currentDate < sprintStartDate) {
+      status = 'Upcoming';
+      statusColor = 'text-blue-500';
+    } else if (completed === total) {
+      status = 'Completed';
+      statusColor = 'text-emerald-500';
+      statusIcon = <CheckCircle size={20} />;
+    } else if (currentDate > sprintEndDate && completed < total) {
+      status = 'Overdue';
+      statusColor = 'text-red-500';
+      statusIcon = <TrendingDown size={20} />;
+    } else if (actualProgress - expectedProgress >= 10) {
+      status = 'Ahead';
+      statusColor = 'text-emerald-500';
+      statusIcon = <TrendingUp size={20} />;
+    } else if (expectedProgress - actualProgress >= 10) {
+      status = 'Behind';
+      statusColor = 'text-orange-500';
+      statusIcon = <TrendingDown size={20} />;
+    } else {
+      status = 'On Track';
+      statusColor = 'text-emerald-500';
+      statusIcon = <Target size={20} />;
+    }
+
+    return {
+      totalTasks: total,
+      completedTasks: completed,
+      progressPercentage: Math.round(actualProgress),
+      sprintStatus: status,
+      sprintStatusColor: statusColor,
+      sprintStatusIcon: statusIcon,
+    };
+  }, [sprintData, currentDate]);
+
+  const filteredTasks = useMemo(() => {
+    const allTasks = sprintData.weeks.flatMap(week => 
+      week.days.map(day => ({ ...day, type: 'day', weekId: week.id, weekName: week.name }))
+    );
+    
+    if (filter === 'pending') return allTasks.filter(task => !task.completed);
+    if (filter === 'completed') return allTasks.filter(task => task.completed);
+    return allTasks;
+  }, [sprintData, filter]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-800 via-gray-900 to-slate-900 text-white relative overflow-hidden">
+      <style>
+        {`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+          
+          * {
+            font-family: 'Inter', sans-serif;
+          }
+
+          .glassmorphism {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          }
+
+          .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
+          }
+
+          .animate-bounceIn {
+            animation: bounceIn 0.5s ease-out;
+          }
+
+          .animate-slideUp {
+            animation: slideUp 0.4s ease-out;
+          }
+
+          .animate-pulse-subtle {
+            animation: pulseSubtle 2s ease-in-out infinite;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+          }
+
+          @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+
+          @keyframes pulseSubtle {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+          }
+
+          .task-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+
+          .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          }
+
+          .progress-ring {
+            transition: stroke-dasharray 0.5s ease-in-out;
+          }
+
+          .floating-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.1;
+            animation: float 6s ease-in-out infinite;
+          }
+
+          @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+          }
+
+          .edit-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            color: white;
+          }
+
+          .edit-input:focus {
+            border-color: rgb(59, 130, 246);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+          }
+
+          .edit-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+        `}
+      </style>
+
+      {/* Floating background orbs */}
+      <div className="floating-orb w-72 h-72 bg-emerald-400 top-10 -left-20" style={{animationDelay: '0s'}}></div>
+      <div className="floating-orb w-96 h-96 bg-blue-500 top-1/2 -right-32" style={{animationDelay: '2s'}}></div>
+      <div className="floating-orb w-64 h-64 bg-teal-400 bottom-20 left-1/4" style={{animationDelay: '4s'}}></div>
+
+      <ConfettiEffect isActive={showConfetti} />
+      <SuccessCelebration 
+        isVisible={showCelebration} 
+        onClose={() => setShowCelebration(false)} 
+      />
+
+      <div className="relative z-10 p-4 sm:p-6 lg:p-8">
+        {/* Enhanced Header */}
+        <header className="text-center mb-12 animate-slideUp">
+          <div className="glassmorphism rounded-3xl p-8 mb-8">
+            <div className="flex items-center justify-center mb-4">
+              <Rocket className="text-6xl text-blue-600 mr-4" size={60} />
+              <div>
+                <h1 className="text-5xl sm:text-7xl font-black bg-gradient-to-r from-blue-600 via-teal-500 to-emerald-500 bg-clip-text text-transparent leading-tight">
+                  GroundState.AI
+                </h1>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-300 mt-2">
+                  Launch Sprint
+                </h2>
+              </div>
+            </div>
+            <p className="text-xl sm:text-2xl font-medium text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              "The way to get started is to quit talking and begin doing."
+            </p>
+          </div>
+
+          {/* Enhanced Progress Ring */}
+          <div className="flex justify-center mb-8">
+            <div className="relative w-48 h-48">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  stroke="rgba(255, 255, 255, 0.1)"
+                  strokeWidth="6"
+                  fill="none"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  stroke="url(#progressGradient)"
+                  strokeWidth="6"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${progressPercentage * 2.827} 282.7`}
+                  className="progress-ring"
+                />
+                <defs>
+                  <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#3B82F6" />
+                    <stop offset="50%" stopColor="#14B8A6" />
+                    <stop offset="100%" stopColor="#10B981" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl font-black text-white">{progressPercentage}%</div>
+                  <div className="text-sm text-gray-300">{completedTasks}/{totalTasks} tasks</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sprint Status */}
+          <div className="glassmorphism rounded-2xl p-6 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center">
+                <Calendar className="text-gray-300 mr-3" size={24} />
+                <div>
+                  <div className="text-sm text-gray-400">Sprint Duration</div>
+                  <div className="font-semibold text-lg text-white">
+                    {new Date(sprintData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –{' '}
+                    {new Date(sprintData.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <div className="text-right mr-3">
+                  <div className="text-sm text-gray-400">Status</div>
+                  <div className={`font-bold text-lg ${sprintStatusColor}`}>{sprintStatus}</div>
+                </div>
+                <div className={sprintStatusColor}>
+                  {sprintStatusIcon}
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Control Panel */}
+        <div className="glassmorphism rounded-2xl p-6 mb-8 animate-slideUp">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="text-sm font-medium text-gray-300">Filter:</div>
+              <div className="flex bg-gray-700 rounded-lg p-1">
+                {[
+                  { value: 'all', label: 'All', icon: List },
+                  { value: 'pending', label: 'Pending', icon: Clock },
+                  { value: 'completed', label: 'Done', icon: CheckCircle }
+                ].map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => setFilter(value)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                      filter === value 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Star className="text-emerald-500" size={20} />
+              <span className="text-sm font-medium text-gray-300">
+                Goal: {sprintData.overallGoal}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Weekly Tasks - Enhanced */}
+          <div className="xl:col-span-2 space-y-6">
+            <h2 className="text-3xl font-bold text-white mb-6 flex items-center">
+              <Zap className="mr-3 text-emerald-500" size={32} />
+              Sprint Tasks
+            </h2>
+
+            {sprintData.weeks.map((week) => {
+              const weekTotalTasks = week.days.length;
+              const weekCompletedTasks = week.days.filter(day => day.completed).length;
+              const weekProgress = weekTotalTasks > 0 ? Math.round((weekCompletedTasks / weekTotalTasks) * 100) : 0;
+              const isExpanded = expandedWeeks[week.id];
+
+              return (
+                <div key={week.id} className="glassmorphism rounded-2xl overflow-hidden animate-slideUp task-card">
+                  <div 
+                    className="p-6 cursor-pointer"
+                    onClick={() => toggleWeekExpansion(week.id)}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? 
+                          <ChevronDown className="text-blue-600" size={24} /> : 
+                          <ChevronRight className="text-blue-600" size={24} />
+                        }
+                        <BookOpen className="text-blue-600" size={28} />
+                        <h3 className="text-2xl font-bold text-white">{week.name}</h3>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-600">{weekProgress}%</div>
+                        <div className="text-sm text-gray-400">{weekCompletedTasks}/{weekTotalTasks}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 mb-4">
+                      <Target className="text-emerald-500" size={20} />
+                      <p className="text-gray-300 font-medium">{week.goal}</p>
+                    </div>
+
+                    <div className="w-full bg-gray-600 rounded-full h-3">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500"
+                        style={{ width: `${weekProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="px-6 pb-6">
+                      <div className="space-y-3">
+                        {week.days.map((day) => {
+                          const isEditing = editingItemId === day.id && editingItemType === 'day';
+                          const isDue = new Date(day.dueDate) <= currentDate;
+                          const isOverdue = !day.completed && new Date(day.dueDate) < currentDate;
+
+                          return (
+                            <div
+                              key={day.id}
+                              className={`group relative glassmorphism rounded-xl p-4 transition-all duration-300 cursor-pointer
+                                ${day.completed ? 'bg-emerald-500/20 border-emerald-500/30' : 
+                                  isOverdue ? 'bg-red-500/20 border-red-500/30' : 
+                                  isDue ? 'bg-yellow-500/20 border-yellow-500/30' : 'hover:bg-white/5'}
+                              `}
+                              onClick={() => !isEditing && toggleCompletion(day.id, 'day', day.completed)}
+                            >
+                              <div className="flex items-start gap-4">
+                                <div className="mt-1">
+                                  {day.completed ? (
+                                    <CheckCircle className="text-emerald-500" size={24} />
+                                  ) : (
+                                    <Circle className={`${isOverdue ? 'text-red-500' : 'text-gray-400'}`} size={24} />
+                                  )}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <span className="font-bold text-white text-lg">{day.date}</span>
+                                    {isOverdue && <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full">Overdue</span>}
+                                    {isDue && !day.completed && !isOverdue && <span className="text-xs bg-yellow-500 text-white px-2 py-1 rounded-full">Due Today</span>}
+                                  </div>
+
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                      <input
+                                        type="text"
+                                        value={editingText}
+                                        onChange={(e) => setEditingText(e.target.value)}
+                                        className="flex-1 edit-input rounded-lg px-3 py-2 text-white placeholder-gray-400"
+                                        placeholder="Enter task description..."
+                                        autoFocus
+                                      />
+                                      <button
+                                        onClick={saveEditedContent}
+                                        className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white transition-colors"
+                                      >
+                                        <Save size={16} />
+                                      </button>
+                                      <button
+                                        onClick={cancelEditing}
+                                        className="p-2 bg-gray-500 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                                      >
+                                        <X size={16} />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-between group">
+                                      <p className={`text-gray-300 leading-relaxed ${day.completed ? 'line-through opacity-60' : ''}`}>
+                                        {day.focus}
+                                      </p>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditing(day.id, 'day', day.focus);
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 p-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-gray-300 hover:text-white transition-all"
+                                      >
+                                        <Edit3 size={16} />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Deliverables Section - Enhanced */}
+          <div className="space-y-6">
+            <h2 className="text-3xl font-bold text-white mb-6 flex items-center">
+              <Award className="mr-3 text-blue-600" size={32} />
+              Key Deliverables
+            </h2>
+
+            <div className="space-y-4">
+              {sprintData.deliverables.map((deliverable) => {
+                const isEditing = editingItemId === deliverable.id && editingItemType === 'deliverable';
+
+                return (
+                  <div
+                    key={deliverable.id}
+                    className={`group glassmorphism rounded-xl p-6 transition-all duration-300 cursor-pointer task-card
+                      ${deliverable.completed ? 'bg-blue-500/20 border-blue-500/30' : 'hover:bg-white/5'}
+                    `}
+                    onClick={() => !isEditing && toggleCompletion(deliverable.id, 'deliverable', deliverable.completed)}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="mt-1">
+                        {deliverable.completed ? (
+                          <CheckSquare className="text-blue-600" size={28} />
+                        ) : (
+                          <Package className="text-gray-400" size={28} />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {isEditing ? (
+                          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                            <textarea
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              className="w-full edit-input rounded-lg px-3 py-2 text-white placeholder-gray-400 resize-none"
+                              placeholder="Enter deliverable description..."
+                              rows="3"
+                              autoFocus
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={saveEditedContent}
+                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white transition-colors flex items-center gap-2"
+                              >
+                                <Save size={16} />
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                className="px-4 py-2 bg-gray-500 hover:bg-gray-600 rounded-lg text-white transition-colors flex items-center gap-2"
+                              >
+                                <X size={16} />
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between group">
+                            <p className={`text-lg text-gray-200 leading-relaxed ${deliverable.completed ? 'line-through opacity-60' : ''}`}>
+                              {deliverable.name}
+                            </p>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditing(deliverable.id, 'deliverable', deliverable.name);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-gray-300 hover:text-white transition-all ml-2"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quick Stats */}
+            <div className="glassmorphism rounded-xl p-6">
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                <TrendingUp className="mr-2 text-emerald-500" size={24} />
+                Quick Stats
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Total Progress</span>
+                  <span className="font-bold text-white">{progressPercentage}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Tasks Completed</span>
+                  <span className="font-bold text-emerald-400">{completedTasks}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Tasks Remaining</span>
+                  <span className="font-bold text-orange-400">{totalTasks - completedTasks}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Sprint Status</span>
+                  <span className={`font-bold ${sprintStatusColor} flex items-center gap-1`}>
+                    {sprintStatusIcon}
+                    {sprintStatus}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Motivation Card */}
+            <div className="glassmorphism rounded-xl p-6 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/30">
+              <h3 className="text-xl font-bold text-white mb-3 flex items-center">
+                <Star className="mr-2 text-emerald-400" size={24} />
+                Daily Motivation
+              </h3>
+              <p className="text-emerald-200 leading-relaxed">
+                Every task completed is a step closer to your goal. Keep pushing forward! 🚀
+              </p>
+              <div className="mt-4 p-3 bg-white/10 rounded-lg border border-emerald-500/30">
+                <p className="text-sm text-gray-300">
+                  "Success is the sum of small efforts repeated day in and day out."
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Results for smaller screens */}
+        {filter !== 'all' && (
+          <div className="mt-8 glassmorphism rounded-2xl p-6">
+            <h3 className="text-2xl font-bold text-white mb-4 flex items-center">
+              <List className="mr-2 text-blue-600" size={28} />
+              {filter === 'pending' ? 'Pending Tasks' : 'Completed Tasks'} ({filteredTasks.length})
+            </h3>
+            <div className="grid gap-3">
+              {filteredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className={`glassmorphism rounded-lg p-4 transition-all cursor-pointer
+                    ${task.completed ? 'bg-emerald-500/20 border-emerald-500/30' : 'hover:bg-white/5'}
+                  `}
+                  onClick={() => toggleCompletion(task.id, 'day', task.completed)}
+                >
+                  <div className="flex items-center gap-3">
+                    {task.completed ? (
+                      <CheckCircle className="text-emerald-500" size={20} />
+                    ) : (
+                      <Circle className="text-gray-400" size={20} />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-white">{task.date}</span>
+                        <span className="text-xs text-gray-400">• {task.weekName}</span>
+                      </div>
+                      <p className={`text-gray-300 ${task.completed ? 'line-through opacity-60' : ''}`}>
+                        {task.focus}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Footer */}
+        <footer className="mt-16 text-center glassmorphism rounded-2xl p-6">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Rocket className="text-blue-600" size={24} />
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">
+              GroundState.AI Launch Dashboard
+            </span>
+          </div>
+          <p className="text-gray-400">Powered by determination and coffee ☕</p>
+          <p className="text-sm text-gray-500 mt-2">Your journey to success starts here. Keep building! 🔥</p>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+export default App;
